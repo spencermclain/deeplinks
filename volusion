@@ -1,0 +1,88 @@
+// ==UserScript==
+// @name         Whitepages Pro Web - Volusion
+// @namespace    http://pro.whitepages.com/
+// @version      1.0
+// @description  Implement Deep Links to Whitepages Pro Web Identity Check within Volusion.
+// @author       Spencer McLain <smclain@whitepages.com>
+// @grant        none
+// ==/UserScript==
+
+var currURL = document.url || window.location.href || this.href;
+//make sure we are on a Decision Manager screen, on the initial load that contains the contact data (there is a subsequent load identified by the hash at the end of the URL that we don't want).
+if((currURL.toLowerCase().indexOf('admindetails_processorder.asp') >= 0 ))
+{
+    var wpIP, wpEmail, wpBillName, wpBillAddress, wpBillPhone, wpBillCountry, wpShipName, wpShipAddress, wpShipPhone, wpShipCountry;
+    var wpErrors = [];
+
+    //if we failed to find this table, then there has been a site change
+
+	//Get Billing Information
+	var BillArr = $('#ProcessOrderForm > table.table-orderdetails.summary > tbody > tr > td.cell-totalandfraudwrapper > div > table > tbody > tr > td:nth-child(1) > p').html().replace(/&nbsp;/g, ' ').replace(/<a href="mailto.*/, '').replace('</a>', '').split('<br>').map( function(elem) { return elem.replace(/\n/g, " ").replace(/\t+/g, " ").replace(/ +/g, " ").trim(); } );
+	wpEmail = BillArr.pop()
+	wpBillPhone = BillArr.pop()
+	wpBillCountry = BillArr.pop().replace('United States', 'US').replace('Canada', 'CA');
+
+
+	var hasBillCompany = false;
+	for(index = 0; index < BillArr.length; index++){
+		if(/^[0-9]+/.test(BillArr[index]) && index == 1) {
+				break;			
+		} 
+		if(/^[0-9]+/.test(BillArr[index]) && index == 2) {
+				hasBillCompany = true;
+				break;			
+		}
+	}
+
+	if( hasBillCompany ) {
+		var wpBillCompany = BillArr.shift();
+	}
+
+	wpBillName = BillArr.shift()
+	wpBillAddress = BillArr.join(' ')
+
+	//Get Shipping Information
+	var ShipArr = $('#ProcessOrderForm > table.table-orderdetails.summary > tbody > tr > td.cell-totalandfraudwrapper > div > table > tbody > tr > td:nth-child(2) > p').html().replace(/&nbsp;/g, ' ').replace(/<a href="mailto.*/, '').replace('</a>', '').split('<br>').map( function(elem) { return elem.replace(/\n/g, " ").replace(/\t+/g, " ").replace(/ +/g, " ").trim(); } );
+	ShipType = ShipArr.pop()
+	wpShipPhone = ShipArr.pop()
+	wpShipCountry = ShipArr.pop().replace('United States', 'US').replace('Canada', 'CA');
+
+	var hasShipCompany = false;
+	for(index = 0; index < ShipArr.length; index++){
+		if(/^[0-9]+/.test(ShipArr[index]) && index == 1) {
+				break;			
+		} 
+		if(/^[0-9]+/.test(ShipArr[index]) && index == 2) {
+				hasShipCompany = true;
+				break;			
+		}
+	}
+
+	if( hasShipCompany ) {
+		var wpShipCompany = ShipArr.shift();
+	}
+
+	wpShipName = ShipArr.shift()
+	wpShipAddress = ShipArr.join(' ')
+
+	//Get IP Address
+	var wpIP = $('#ProcessOrderForm > table.table-orderdetails.summary > tbody > tr > td.cell-totalandfraudwrapper > table > tbody > tr > td > div > p:nth-child(2) > a').html().trim();
+
+	//now we have all the input data, so we can build the Pro Web Identity Check URLs
+	wpAPIURL = 'https://pro.lookup.whitepages.com/identity_checks?'
+	wpAPIURL += 'billing_name='+encodeURIComponent(wpBillName)+'&';
+	wpAPIURL += 'billing_phone='+encodeURIComponent(wpBillPhone)+'&';
+	wpAPIURL += 'billing_address_street_line_1='+encodeURIComponent(wpBillAddress)+'&';
+	wpAPIURL += 'billing_address_country_code='+encodeURIComponent(wpBillCountry)+'&';
+	wpAPIURL += 'shipping_name='+encodeURIComponent(wpShipName)+'&';
+	wpAPIURL += 'shipping_phone='+encodeURIComponent(wpShipPhone)+'&';
+	wpAPIURL += 'shipping_address_street_line_1='+encodeURIComponent(wpShipAddress)+'&';    
+	wpAPIURL += 'shipping_address_country_code='+encodeURIComponent(wpShipCountry)+'&';
+	wpAPIURL += 'email_address='+encodeURIComponent(wpEmail)+'&';
+	wpAPIURL += 'ip_address='+encodeURIComponent(wpIP);
+
+	//now insert links for these into billing and shipping sections
+	$('#ProcessOrderForm > table.table-orderdetails.summary > tbody > tr > td.cell-totalandfraudwrapper > table > tbody > tr > td > table').after('<div id="wplink"><a href="' + wpAPIURL +'" target="_blank">Verify with Whitepages Pro</a></div>')
+	$('#wplink').css('text-align', 'right').css('font-size', '20px')
+
+}
